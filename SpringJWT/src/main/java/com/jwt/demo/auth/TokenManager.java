@@ -12,7 +12,7 @@ import java.util.Date;
 @Service
 public class TokenManager {
 
-    private static final int validty = 5 * 60 * 1000;
+    private static final int validity = 5 * 60 * 1000;
     Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
     public String generateToken(String username){
@@ -20,7 +20,7 @@ public class TokenManager {
                 .setSubject(username)
                 .setIssuer("alicanli.com")
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis()+ validty))
+                .setExpiration(new Date(System.currentTimeMillis()+ validity))
                 .signWith(key)
                 .compact();
     }
