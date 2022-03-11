@@ -1,0 +1,68 @@
+version: "3.9"
+
+networks:
+  microservice-net:
+    name: microservice-net
+    driver: bridge
+
+services:
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:3.7
+    container_name: zookeeper
+    restart: unless-stopped
+    networks:
+      - microservice-net
+    ports:
+      - "2181:2181"
+    volumes:
+      - "./data/zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: docker.io/bitnami/kafka:3
+    container_name: kafka
+    restart: unless-stopped
+    networks:
+      - microservice-net
+    ports:
+      - "9092:9092"
+    volumes:
+      - "./data/kafka_data:/bitnami"
+      - "./kafka/kafka-init.sh:/docker-entrypoint-initdb.d/kafka-init.sh"
+    environment:
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: DOCKER_INTERNAL:PLAINTEXT,DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_CFG_LISTENERS: DOCKER_INTERNAL://:29092,DOCKER_EXTERNAL://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: DOCKER_INTERNAL://kafka:29092,DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: DOCKER_INTERNAL
+      KAFKA_CFG_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_CFG_BROKER_ID: 1
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    depends_on:
+      - zookeeper
+
+
+  kafka-connect:
+    image: debezium/connect:1.8
+    container_name: kafka-connect
+    restart: unless-stopped
+    networks:
+      - microservice-net
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: "kafka:29092"
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: ms_connect_configs
+      OFFSET_STORAGE_TOPIC: ms_connect_offsets
+      STATUS_STORAGE_TOPIC: ms_connect_statuses
+    depends_on:
+     - kafka
+     - postgres
+
+  mongo_db:
+    image: "mongo:4.4.3"
+    restart: always
+    ports:
+      - 27017:27017
